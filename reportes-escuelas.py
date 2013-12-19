@@ -12,7 +12,6 @@ import datetime
 from time import strptime
 from datetime import datetime
 from datetime import timedelta
-#
 import pwd
 import grp
 
@@ -280,9 +279,9 @@ def newreport(isp_id,day_id,month_id,year,report_id):
 
 		#SALTO DE LINEA PARA RESUMENES
 		if report_id == "2":
-			print "%d list_av" % (len(list_av))
-			print "%d < %d " % (contador_fecha,contador_fecha_anterior)
+			contador_fecha = len(list_av)
 			respuesta = respuesta + "\n"
+			
 		if report_id == "5":
 			contador_fecha = len(list_bwup)
 			if contador_fecha < len(list_bwdown):
@@ -305,7 +304,6 @@ def newreport(isp_id,day_id,month_id,year,report_id):
 	
 	#COMPLETAR ENCABEZADO DE REPORTES
 	if report_id == "2":
-		print "%d < %d" % (contador_fecha,contador_fecha_anterior)
 		if contador_fecha < contador_fecha_anterior:
 			contador_fecha = contador_fecha_anterior
 		texto_fecha = ""
@@ -368,8 +366,7 @@ def main():
 	
 	text_report = newreport(isp_id,day,month,year,report_id)
 	
-		
-		
+
 		
 if __name__ == "__main__":
     main()
