@@ -23,6 +23,7 @@ password = "1qazxsw2"
 
 #LINARES = 2
 isp_id = 2
+isp_name = "LUZLINARES"
 file_name = ""
 path_file = ""
 
@@ -50,7 +51,7 @@ def newreport(isp_id,day_id,month_id,year,report_id):
 	## VARIABLES ############################################################
 	#Depende del reporte
 	
-	lista_dias = {'Monday': 'Lunes', 'Tuesday': 'Martes', 'Wednesday': 'Miercoles', 'Thursday':'Jueves', 'Friday':'Viernes'}
+	lista_dias = {'Monday': 'Lunes', 'Tuesday': 'Martes', 'Wednesday': 'Miercoles', 'Thursday':'Jueves', 'Friday':'Viernes','Saturday':'Sabado'}
 	global file_name
 	global path_file 
 	encabezado_archivo = ""
@@ -58,23 +59,27 @@ def newreport(isp_id,day_id,month_id,year,report_id):
 	respuesta = ""
 	contador_fecha = 0
 	contador_fecha_anterior = 0
+	
+	hora_inicio = 8
+	hora_fin = 17
+	
 	##NOMBRE ARCHIVO ########################################################
 	if report_id == "1":
-		file_name = "DETALLE_DISPONIBILIDAD"
+		file_name = "DETALLE_DISPO_"+isp_name
 		encabezado_archivo = "Id_Muestra\tRBD\tId_Enlace\tAnexo\tEstablecimiento\tTipo_Servicio\tID_BTS\tNombre_BTS\tFecha_Muestra\tDia_Muestra\tHora_Muestra\tDISPONIBILIDAD\tObservacion\n"
 		respuesta = respuesta + encabezado_archivo
 	elif report_id == "2":
-		file_name = "RESUMEN_DISPONIBILIDAD"
+		file_name = "RESUMEN_DISPO_"+isp_name
 	elif report_id == "3":
-		file_name = "DETALLE_VEL_CARGA"
+		file_name = "DETALLE_VEL_SUBIDA_"+isp_name
 		encabezado_archivo = "Id_Muestra\tRBD\tId_Enlace\tAnexo\tEstablecimiento\tTipo_Servicio\tVelocidad\tID_BTS\tNombre_BTS\tFecha_Muestra\tDia_Muestra\tHora_Muestra\tValor_Muestra\tObservacion\n"
 		respuesta = respuesta + encabezado_archivo
 	elif report_id == "4":
-		file_name = "DETALLE_VEL_DESCARGA"
+		file_name = "DETALLE_VEL_BAJADA_"+isp_name
 		encabezado_archivo = "Id_Muestra\tRBD\tId_Enlace\tAnexo\tEstablecimiento\tTipo_Servicio\tVelocidad\tID_BTS\tNombre_BTS\tFecha_Muestra\tDia_Muestra\tHora_Muestra\tValor_Muestra\tObservacion\n"
 		respuesta = respuesta + encabezado_archivo
 	else:
-		file_name = "RESUMEN_VELOCIDAD"
+		file_name = "RESUMEN_VEL_"+isp_name
 	########################################################################
 
 	
@@ -110,10 +115,14 @@ def newreport(isp_id,day_id,month_id,year,report_id):
 		#RECORRER LAS FECHAS HASTA LA SELECCIONADA
 		fecha_inicio = 1
 		for dia in range(fecha_inicio,int(day_id)+1):
+			id_muestra = 1
+			
 			#VALIDAR SI dia es LUNES-VIERNES
 			nombre_dia_fecha = datetime.strptime('%s%s%s' % (str(dia).zfill(2),str(month_id),str(year)), '%d%m%Y').date()
 			nombre_dia = str(nombre_dia_fecha.strftime('%A'))
 			if nombre_dia in lista_dias.keys():
+				
+				
 				#LINEA CON INFORMACION
 				#linea = ""
 				#DETALLE_DISPONIBLIDAD
@@ -134,13 +143,16 @@ def newreport(isp_id,day_id,month_id,year,report_id):
 							horario_medida = datetime.strptime('%s' % (d[0]),'/%d/%m/%Y/ - %H:%M:%S').date()
 							horario_medida = datetime(*strptime(d[0],"/%d/%m/%Y/ - %H:%M:%S")[0:6])
 							hora_medida = int(horario_medida.strftime('%H'))
-							if hora_medida > 8 and hora_medida < 19:
+							if hora_medida > hora_inicio and hora_medida < hora_fin:
 								#VALOR CORRECTO, AGREGAR AL ARCHIVO
 								linea = str(id_muestra)+"\t"+str(escuela[0])+"\t0\t0\t"+str(escuela[1])+"\t"+"Radioenlace"
 								respuesta = respuesta+linea+"\t"+"%s/%s/%s\t" %(str(str(dia).zfill(2)),str(month_id),str(year))
 								respuesta = respuesta+lista_dias[d[1].strftime('%A')]+"\t"
 								respuesta = respuesta+d[1].strftime('%H:%M:%S')+"\t"
-								respuesta = respuesta+str(d[2])+"\n"
+								if nombre_dia <> 'Saturday':
+									respuesta = respuesta+str(d[2])+"\n"
+								else:
+									respuesta = respuesta+str(-1)+"\n"
 								id_muestra = id_muestra + 1
 
 
@@ -160,13 +172,15 @@ def newreport(isp_id,day_id,month_id,year,report_id):
 							horario_medida = datetime.strptime('%s' % (d[0]),'/%d/%m/%Y/ - %H:%M:%S').date()
 							horario_medida = datetime(*strptime(d[0],"/%d/%m/%Y/ - %H:%M:%S")[0:6])
 							hora_medida = int(horario_medida.strftime('%H'))
-							if hora_medida > 8 and hora_medida < 19:
+							if hora_medida > hora_inicio and hora_medida < hora_fin:
 								#VALOR CORRECTO, AGREGAR AL ARCHIVO
 								suma_disp = suma_disp + int(d[2])
 								contador_disp = contador_disp + 1
 								
 						if contador_disp <> 0:
 							promedio_disp = int(suma_disp)/int(contador_disp)
+							if nombre_dia == 'Saturday':
+								promedio_disp = -1
 							respuesta = respuesta + d[1].strftime("/%d/%m/%Y/")+"\t"+str(promedio_disp)+"\t"
 							list_av.update({datetime(int(year),int(month_id),int(dia)).strftime("%d/%m/%Y"):promedio_disp})
 						
@@ -202,13 +216,15 @@ def newreport(isp_id,day_id,month_id,year,report_id):
 							horario_medida = datetime.strptime('%s' % (bw[0]),'/%d/%m/%Y/ - %H:%M:%S').date()
 							horario_medida = datetime(*strptime(bw[0],"/%d/%m/%Y/ - %H:%M:%S")[0:6])
 							hora_medida = int(horario_medida.strftime('%H'))
-							if hora_medida > 8 and hora_medida < 19:
+							if hora_medida > hora_inicio and hora_medida < hora_fin:
 								#VALOR CORRECTO, AGREGAR AL ARCHIVO
 								linea = str(id_muestra)+"\t"+str(escuela[0])+"\t0\t0\t"+str(escuela[1])+"\t"+"Radioenlace\t"+velocidad
 								respuesta = respuesta+linea+"\t"+"%s/%s/%s\t" %(str(str(dia).zfill(2)),str(month_id),str(year))
 								respuesta = respuesta+lista_dias[bw[1].strftime('%A')]+"\t"
 								respuesta = respuesta+bw[1].strftime('%H:%M:%S')+"\t"
 								kilobits = "%.2f" % (float(bw[2])/1024)
+								if nombre_dia == 'Saturday':
+									kilobits = -1
 								respuesta = respuesta+str(kilobits)+"\n"
 								id_muestra = id_muestra + 1
 
@@ -232,7 +248,7 @@ def newreport(isp_id,day_id,month_id,year,report_id):
 							horario_medida = datetime.strptime('%s' % (bw[0]),'/%d/%m/%Y/ - %H:%M:%S').date()
 							horario_medida = datetime(*strptime(bw[0],"/%d/%m/%Y/ - %H:%M:%S")[0:6])
 							hora_medida = int(horario_medida.strftime('%H'))
-							if hora_medida > 8 and hora_medida < 19:
+							if hora_medida > hora_inicio and hora_medida < hora_fin:
 								#VALOR CORRECTO, AGREGAR AL ARCHIVO
 								suma_bwup = suma_bwup + float(bw[2])
 								contador_bwup = contador_bwup + 1
