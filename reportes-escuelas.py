@@ -103,12 +103,12 @@ def newreport(isp_id,day_id,month_id,year,report_id):
 				contador_fecha = 0
 
 		if report_id == "2":
-			linea = str(escuela[0])+"\t0\t"+str(escuela[1])+"\t"+"RF\t"
+			linea = str(escuela[0])+"\t0\t"+str(escuela[1])+"\t"+"RF\t \t \t20/01/2012\t12:00:00\t"
 			respuesta = respuesta + linea
 
 		if report_id == "5":
-			linea = str(escuela[0])+"\t0\t"+str(escuela[1])+"\t"+"RF\t"
-			linea = linea + escuela[3] + "\t" + escuela[4] + "\t" + "20/01/2012\t12:00\t"
+			linea = str(escuela[0])+"\t0\t"+str(escuela[1])+"\t"+"RF\t \t \t"
+			linea = linea + escuela[3] + "\t" + escuela[4] + "\t20/01/2012\t12:00:00\t"
 
 			#respuesta = respuesta + linea
 
@@ -167,6 +167,7 @@ def newreport(isp_id,day_id,month_id,year,report_id):
 					#SI EXISTEN VALORES PARA DISPONIBILIDAD
 					if len(results_availability) <> 0:
 						contador_disp = 0
+						
 						for d in results_availability:
 							#VALIDAR HORA DE LA MEDICION
 							horario_medida = datetime.strptime('%s' % (d[0]),'/%d/%m/%Y/ - %H:%M:%S').date()
@@ -181,7 +182,7 @@ def newreport(isp_id,day_id,month_id,year,report_id):
 							promedio_disp = int(suma_disp)/int(contador_disp)
 							if nombre_dia == 'Saturday':
 								promedio_disp = -1
-							respuesta = respuesta + d[1].strftime("/%d/%m/%Y/")+"\t"+str(promedio_disp)+"\t"
+							respuesta = respuesta + d[1].strftime("%d/%m/%Y")+"\t"+str(promedio_disp)+"\t"
 							list_av.update({datetime(int(year),int(month_id),int(dia)).strftime("%d/%m/%Y"):promedio_disp})
 						
 						#contador_fecha = contador_fecha + 1
@@ -218,14 +219,15 @@ def newreport(isp_id,day_id,month_id,year,report_id):
 							hora_medida = int(horario_medida.strftime('%H'))
 							if hora_medida > hora_inicio and hora_medida < hora_fin:
 								#VALOR CORRECTO, AGREGAR AL ARCHIVO
-								linea = str(id_muestra)+"\t"+str(escuela[0])+"\t0\t0\t"+str(escuela[1])+"\t"+"Radioenlace\t"+velocidad
+								"Id_Muestra\tRBD\tId_Enlace\tAnexo\tEstablecimiento\tTipo_Servicio\tVelocidad\tID_BTS\tNombre_BTS\tFecha_Muestra\tDia_Muestra\tHora_Muestra\tValor_Muestra\tObservacion\n"
+								linea = str(id_muestra)+"\t"+str(escuela[0])+"\t0\t0\t"+str(escuela[1])+"\t"+"Radioenlace\t"+velocidad+"\t \t "
 								respuesta = respuesta+linea+"\t"+"%s/%s/%s\t" %(str(str(dia).zfill(2)),str(month_id),str(year))
 								respuesta = respuesta+lista_dias[bw[1].strftime('%A')]+"\t"
 								respuesta = respuesta+bw[1].strftime('%H:%M:%S')+"\t"
 								kilobits = "%.2f" % (float(bw[2])/1024)
 								if nombre_dia == 'Saturday':
 									kilobits = -1
-								respuesta = respuesta+str(kilobits)+"\n"
+								respuesta = respuesta+str(kilobits).replace(".",",")+"\n"
 								id_muestra = id_muestra + 1
 
 				if report_id == "5":
@@ -255,6 +257,9 @@ def newreport(isp_id,day_id,month_id,year,report_id):
 								if contador_bwup <> 0:
 									promedio_bwup = "%.2f " % float((suma_bwup)/contador_bwup)
 									promedio_kilobits = "%.2f " % float(float(promedio_bwup)/1024)
+									if nombre_dia == 'Saturday':
+										promedio_kilobits = -1
+									
 									list_bwup.update({datetime(int(year),int(month_id),int(dia)).strftime("%d/%m/%Y"):promedio_kilobits})
 									contador_fecha = contador_fecha + 1
 									
@@ -285,6 +290,9 @@ def newreport(isp_id,day_id,month_id,year,report_id):
 								if contador_bwdown <> 0:
 									promedio_bwdown = "%.2f " % float((suma_bwdown)/contador_bwdown)
 									promedio_kilobits = "%.2f " % float(float(promedio_bwdown)/1024)
+									if nombre_dia == 'Saturday':
+										promedio_kilobits = -1
+									
 									list_bwdown.update({datetime(int(year),int(month_id),int(dia)).strftime("%d/%m/%Y"):promedio_kilobits})
 									
 									if datetime(int(year),int(month_id),int(dia)).strftime("%d/%m/%Y")  not in list_day_speed:
@@ -302,20 +310,39 @@ def newreport(isp_id,day_id,month_id,year,report_id):
 			contador_fecha = len(list_bwup)
 			if contador_fecha < len(list_bwdown):
 				contador_fecha = len(list_bwdown)
-		
+			
 			respuesta = respuesta + linea
+			## Variables Promedios
+			fsuma_bwdown = 0
+			fpromedio_bwdown = 0
+			fsuma_bwup = 0
+			fpromedio_bwup = 0
+			
+			
 			for k in list_day_speed:
-				respuesta = respuesta + str(k).replace(" ","")+ "\t" 
+				respuesta = respuesta + str(k).replace(" ","") + "\t" 
 				if k in list_bwdown:
-					respuesta = respuesta + str(list_bwdown[k]).replace(" ","")+ "\t"
+					respuesta = respuesta + str(list_bwdown[k]).replace(" ","").replace(".",",")+ "\t"
+					fsuma_bwdown = fsuma_bwdown + float(list_bwdown[k])
 				else:
 					respuesta = respuesta + str(0) + "\t"
 				
 				if k in list_bwup:
-					respuesta = respuesta + str(list_bwup[k]).replace(" ","") + "\t"
+					respuesta = respuesta + str(list_bwup[k]).replace(" ","").replace(".",",") + "\t"
+					fsuma_bwup = fsuma_bwup + float(list_bwup[k])
 				else:
 					respuesta = respuesta + str(0) + "\t"
 				#respuesta = respuesta + str(k).replace(" ","") + "\t" + str(list_bwdown[k]).replace(" ","") + "\t" + str(list_bwup[k]).replace(" ","") + "\t"
+				
+			##Promedios
+			if len(list_day_speed) <> 0:
+				fpromedio_bwdown = "%.2f " % float(fsuma_bwdown / len(list_day_speed))
+				fpromedio_bwup = "%.2f" % float(fsuma_bwup / len(list_day_speed))
+			else:
+				fpromedio_bwdown = 0
+				fpromedio_bwup = 0
+			respuesta = respuesta + str(fpromedio_bwdown).replace(".",",") + "\t" + str(fpromedio_bwup).replace(".",",") + "\t "
+				
 			respuesta = respuesta + "\n"
 	
 	#COMPLETAR ENCABEZADO DE REPORTES
@@ -325,7 +352,7 @@ def newreport(isp_id,day_id,month_id,year,report_id):
 		texto_fecha = ""
 		for i in range(1,contador_fecha+1):
 			texto_fecha = texto_fecha + "fecha_%s\tdisp_%s\t" % (str(i),str(i))
-		respuesta = "RBD\tANEXO\tESTABLECIMINENTO\tTIPO_SERVICIO\t" +texto_fecha +"\n" + respuesta
+		respuesta = "RBD\tANEXO\tESTABLECIMINENTO\tTIPO_SERVICIO\tId_bts\tNombre_bts\tfecha_alta_operativa\thora_alta_operativa\t" +texto_fecha +"\n" + respuesta
 
 	if report_id == "5":
 		if contador_fecha < contador_fecha_anterior:
@@ -335,10 +362,10 @@ def newreport(isp_id,day_id,month_id,year,report_id):
 		for i in range(1,contador_fecha+1):
 			texto_fecha = texto_fecha + "fecha_%s\tvel_bajada_%s\tvel_subida_%s\t" % (str(i),str(i),str(i))
 				
-		respuesta = "RBD\tANEXO\tESTABLECIMINENTO\tTIPO_SERVICIO\tID_BTS\tNOMBRE_BRS\tVEL_BAJADA\tVEL_SUBIDA\tFECHA_ALTA\tHORA_ALTA\t" +texto_fecha +"\n" + respuesta
+		respuesta = "RBD\tANEXO\tESTABLECIMINENTO\tTIPO_SERVICIO\tID_BTS\tNOMBRE_BRS\tVEL_BAJADA\tVEL_SUBIDA\tFECHA_ALTA\tHORA_ALTA\t" +texto_fecha + "vel_prom_bajada\tvel_prom_subida\tobservaciones" +"\n" + respuesta
 	########################################################################
     
-	path = '%s%s_%s_%s_%s.txt' % (path_file,year,month_id,day_id,file_name)
+	path = '%s%s%s%s_%s.txt' % (path_file,year,month_id,day_id,file_name)
 	file_report = open(path ,'w')
 	file_report.write(respuesta)
 	file_report.close()
