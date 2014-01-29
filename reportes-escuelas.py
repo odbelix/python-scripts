@@ -26,7 +26,18 @@ isp_id = 2
 isp_name = "LUZLINARES"
 file_name = ""
 path_file = ""
+list_days = []
 
+def getListOfDays(day_id,month_id,year):
+	global list_days
+	fecha_inicio = 1
+	lista_dias = {'Monday': 'Lunes', 'Tuesday': 'Martes', 'Wednesday': 'Miercoles', 'Thursday':'Jueves', 'Friday':'Viernes','Saturday':'Sabado'}
+	for dia in range(fecha_inicio,int(day_id)+1):
+		nombre_dia_fecha = datetime.strptime('%s%s%s' % (str(dia).zfill(2),str(month_id),str(year)), '%d%m%Y').date()
+		nombre_dia = str(nombre_dia_fecha.strftime('%A'))
+		if nombre_dia in lista_dias.keys():
+			list_days.append(datetime(int(year),int(month_id),int(dia)).strftime("%d/%m/%Y"))
+			
 
 #Execute query
 def selectValues(query):
@@ -54,6 +65,7 @@ def newreport(isp_id,day_id,month_id,year,report_id):
 	lista_dias = {'Monday': 'Lunes', 'Tuesday': 'Martes', 'Wednesday': 'Miercoles', 'Thursday':'Jueves', 'Friday':'Viernes','Saturday':'Sabado'}
 	global file_name
 	global path_file 
+	global list_days
 	encabezado_archivo = ""
 	id_muestra = 1
 	respuesta = ""
@@ -70,6 +82,10 @@ def newreport(isp_id,day_id,month_id,year,report_id):
 		respuesta = respuesta + encabezado_archivo
 	elif report_id == "2":
 		file_name = "RESUMEN_DISPO_"+isp_name
+		query_datecount = "SELECT date FROM stats_availability WHERE date_format(datereg,'%%m-%%Y') = '%s-%s' and date_format(datereg,'%%a')<>'Sun' group by date_format(datereg,'%%d-%%m-%%Y')" % (month_id,year)
+		results = selectValues(query_datecount)
+		len(results)
+					
 	elif report_id == "3":
 		file_name = "DETALLE_VEL_SUBIDA_"+isp_name
 		encabezado_archivo = "Id_Muestra\tRBD\tId_Enlace\tAnexo\tEstablecimiento\tTipo_Servicio\tVelocidad\tID_BTS\tNombre_BTS\tFecha_Muestra\tDia_Muestra\tHora_Muestra\tValor_Muestra\tObservacion\n"
@@ -89,12 +105,14 @@ def newreport(isp_id,day_id,month_id,year,report_id):
     ##
 	query = "SELECT rbd,name,ipaddress,bwdown,bwup FROM stats_place WHERE availability = 1 and isp_id = %s ORDER BY rbd" % isp_id
 	resultados_place = selectValues(query)
-
+	option_list_day_ava = True
+	
 	for escuela in resultados_place:
 		#VARIABLES PARA REPORTE DE RESUMEN MEDICIONES
 		list_bwup = {}
 		list_bwdown = {}
 		list_day_speed = []
+		list_day_ava = []
 		list_av = {}
 		if report_id == "2" or report_id == "5":
 			if contador_fecha > contador_fecha_anterior:
@@ -138,14 +156,33 @@ def newreport(isp_id,day_id,month_id,year,report_id):
 					
 					#SI EXISTEN VALORES PARA DISPONIBILIDAD
 					if len(results_availability) <> 0:
+						hora_medida_anterior = 0
+						minutos_medida_anterior = 0
+						
 						for d in results_availability:
 							#VALIDAR HORA DE LA MEDICION
+							opcion_registrar = True
+							 
 							horario_medida = datetime.strptime('%s' % (d[0]),'/%d/%m/%Y/ - %H:%M:%S').date()
 							horario_medida = datetime(*strptime(d[0],"/%d/%m/%Y/ - %H:%M:%S")[0:6])
 							hora_medida = int(horario_medida.strftime('%H'))
-							if hora_medida > hora_inicio and hora_medida < hora_fin:
+							minutos_medida = int(horario_medida.strftime('%M'))
+							
+							##Validar solo una medicion por hora
+							if hora_medida_anterior <> hora_medida:
+								hora_medida_anterior = hora_medida
+								minutos_medida_anterior = minutos_medida
+								opcion_registrar = True
+							else:
+								if hora_medida_anterior == hora_medida:
+									if (minutos_medida - minutos_medida_anterior) < 40:
+										opcion_registrar = False
+									else:
+										opcion_registrar = True
+							
+							if hora_medida >= hora_inicio and hora_medida <= hora_fin and opcion_registrar == True:
 								#VALOR CORRECTO, AGREGAR AL ARCHIVO
-								linea = str(id_muestra)+"\t"+str(escuela[0])+"\t0\t0\t"+str(escuela[1])+"\t"+"Radioenlace"
+								linea = str(id_muestra)+"\t"+str(escuela[0])+"\t0\t0\t"+str(escuela[1])+"\t"+"Radioenlace\t \t "
 								respuesta = respuesta+linea+"\t"+"%s/%s/%s\t" %(str(str(dia).zfill(2)),str(month_id),str(year))
 								respuesta = respuesta+lista_dias[d[1].strftime('%A')]+"\t"
 								respuesta = respuesta+d[1].strftime('%H:%M:%S')+"\t"
@@ -164,22 +201,44 @@ def newreport(isp_id,day_id,month_id,year,report_id):
 					query_availability = "SELECT date,datereg,value FROM stats_availability WHERE ipplace = '%s' AND date_format(datereg,'%%d-%%m-%%Y') = '%s-%s-%s' ORDER BY datereg " %(escuela[2],str(dia).zfill(2),month_id,year)
 					results_availability = selectValues(query_availability);
 					
+					#Record Days
+					list_day_ava.append(datetime(int(year),int(month_id),int(dia)).strftime("%d/%m/%Y"))
+					
 					#SI EXISTEN VALORES PARA DISPONIBILIDAD
 					if len(results_availability) <> 0:
 						contador_disp = 0
+						hora_medida_anterior = 0
+						minutos_medida_anterior = 0
 						
 						for d in results_availability:
+							opcion_registrar = True
 							#VALIDAR HORA DE LA MEDICION
 							horario_medida = datetime.strptime('%s' % (d[0]),'/%d/%m/%Y/ - %H:%M:%S').date()
 							horario_medida = datetime(*strptime(d[0],"/%d/%m/%Y/ - %H:%M:%S")[0:6])
 							hora_medida = int(horario_medida.strftime('%H'))
-							if hora_medida > hora_inicio and hora_medida < hora_fin:
+							minutos_medida = int(horario_medida.strftime('%M'))
+							
+							##Validar solo una medicion por hora
+							if hora_medida_anterior <> hora_medida:
+								hora_medida_anterior = hora_medida
+								minutos_medida_anterior = minutos_medida
+								opcion_registrar = True
+							else:
+								if hora_medida_anterior == hora_medida:
+									if (minutos_medida - minutos_medida_anterior) < 40:
+										opcion_registrar = False
+									else:
+										opcion_registrar = True
+							
+							if hora_medida >= hora_inicio and hora_medida <= hora_fin and opcion_registrar == True:
 								#VALOR CORRECTO, AGREGAR AL ARCHIVO
 								suma_disp = suma_disp + int(d[2])
 								contador_disp = contador_disp + 1
 								
 						if contador_disp <> 0:
-							promedio_disp = int(suma_disp)/int(contador_disp)
+							promedio_disp = int(suma_disp)/float(contador_disp)
+							promedio_disp = int(round(promedio_disp))
+													
 							if nombre_dia == 'Saturday':
 								promedio_disp = -1
 							respuesta = respuesta + d[1].strftime("%d/%m/%Y")+"\t"+str(promedio_disp)+"\t"
@@ -212,12 +271,31 @@ def newreport(isp_id,day_id,month_id,year,report_id):
 					results_bwdata = selectValues(query_bwdata)
 					#SI EXISTEN VALORES PARA VELOCIDAD
 					if len(results_bwdata) <> 0:
+						hora_medida_anterior = 0
+						minutos_medida_anterior = 0
+						
 						for bw in results_bwdata:
+							opcion_registrar = True
 							#VALIDAR HORA DE LA MEDICION
 							horario_medida = datetime.strptime('%s' % (bw[0]),'/%d/%m/%Y/ - %H:%M:%S').date()
 							horario_medida = datetime(*strptime(bw[0],"/%d/%m/%Y/ - %H:%M:%S")[0:6])
 							hora_medida = int(horario_medida.strftime('%H'))
-							if hora_medida > hora_inicio and hora_medida < hora_fin:
+							minutos_medida = int(horario_medida.strftime('%M'))
+							
+							##Validar solo una medicion por hora
+							if hora_medida_anterior <> hora_medida:
+								hora_medida_anterior = hora_medida
+								minutos_medida_anterior = minutos_medida
+								opcion_registrar = True
+							else:
+								if hora_medida_anterior == hora_medida:
+									if (minutos_medida - minutos_medida_anterior) < 40:
+										opcion_registrar = False
+									else:
+										opcion_registrar = True
+							
+							
+							if hora_medida >= hora_inicio and hora_medida <= hora_fin and opcion_registrar == True:
 								#VALOR CORRECTO, AGREGAR AL ARCHIVO
 								"Id_Muestra\tRBD\tId_Enlace\tAnexo\tEstablecimiento\tTipo_Servicio\tVelocidad\tID_BTS\tNombre_BTS\tFecha_Muestra\tDia_Muestra\tHora_Muestra\tValor_Muestra\tObservacion\n"
 								linea = str(id_muestra)+"\t"+str(escuela[0])+"\t0\t0\t"+str(escuela[1])+"\t"+"Radioenlace\t"+velocidad+"\t \t "
@@ -236,7 +314,7 @@ def newreport(isp_id,day_id,month_id,year,report_id):
 					promedio_bwup = 0
 					
 					query_bwupdata = "SELECT date,datereg,bw FROM stats_bwup WHERE ipdst = '%s' AND date_format(datereg,'%%d-%%m-%%Y') = '%s-%s-%s' ORDER BY datereg " %(escuela[2],str(dia).zfill(2),month_id,year)
-					query_bwdowndata = "SELECT date,datereg,bw FROM stats_bwdown WHERE ipdst = '%s' AND date_format(datereg,'%%d-%%m-%%Y') = '%s-%s-%s' ORDER BY datereg " %(escuela[2],str(dia).zfill(2),month_id,year)
+					query_bwdowndata = "SELECT date,datereg,bw FROM stats_bwdown WHERE ipsrc = '%s' AND date_format(datereg,'%%d-%%m-%%Y') = '%s-%s-%s' ORDER BY datereg " %(escuela[2],str(dia).zfill(2),month_id,year)
 					
 					results_bwup = selectValues(query_bwupdata)
 					results_bwdown = selectValues(query_bwdowndata)
@@ -245,12 +323,30 @@ def newreport(isp_id,day_id,month_id,year,report_id):
 					#SI EXISTEN VALORES PARA DISPONIBILIDAD
 					if len(results_bwup) <> 0:
 						contador_bwup = 0
+						hora_medida_anterior = 0
+						minutos_medida_anterior = 0
+						
 						for bw in results_bwup:
+							opcion_registrar = True
 							#VALIDAR HORA DE LA MEDICION
 							horario_medida = datetime.strptime('%s' % (bw[0]),'/%d/%m/%Y/ - %H:%M:%S').date()
 							horario_medida = datetime(*strptime(bw[0],"/%d/%m/%Y/ - %H:%M:%S")[0:6])
 							hora_medida = int(horario_medida.strftime('%H'))
-							if hora_medida > hora_inicio and hora_medida < hora_fin:
+							minutos_medida = int(horario_medida.strftime('%M'))
+							
+							##Validar solo una medicion por hora
+							if hora_medida_anterior <> hora_medida:
+								hora_medida_anterior = hora_medida
+								minutos_medida_anterior = minutos_medida
+								opcion_registrar = True
+							else:
+								if hora_medida_anterior == hora_medida:
+									if (minutos_medida - minutos_medida_anterior) < 40:
+										opcion_registrar = False
+									else:
+										opcion_registrar = True
+							
+							if hora_medida >= hora_inicio and hora_medida <= hora_fin and opcion_registrar == True:
 								#VALOR CORRECTO, AGREGAR AL ARCHIVO
 								suma_bwup = suma_bwup + float(bw[2])
 								contador_bwup = contador_bwup + 1
@@ -266,23 +362,36 @@ def newreport(isp_id,day_id,month_id,year,report_id):
 									if datetime(int(year),int(month_id),int(dia)).strftime("%d/%m/%Y")  not in list_day_speed:
 										list_day_speed.append(datetime(int(year),int(month_id),int(dia)).strftime("%d/%m/%Y"))
 										
-								
-						
-								
-					
 					
 					if len(results_bwdown) <> 0:
 						contador_bwdown = 0
 						suma_bwdown = 0
 						contador_bwdown = 0
+						hora_medida_anterior = 0
+						minutos_medida_anterior = 0
 						
 						for bw in results_bwdown:
+							opcion_registrar = True
 							#VALIDAR HORA DE LA MEDICION
 							horario_medida = datetime.strptime('%s' % (bw[0]),'/%d/%m/%Y/ - %H:%M:%S').date()
 							horario_medida = datetime(*strptime(bw[0],"/%d/%m/%Y/ - %H:%M:%S")[0:6])
 							hora_medida = int(horario_medida.strftime('%H'))
+							minutos_medida = int(horario_medida.strftime('%M'))
 							
-							if hora_medida > 8 and hora_medida < 19:
+							##Validar solo una medicion por hora
+							if hora_medida_anterior <> hora_medida:
+								hora_medida_anterior = hora_medida
+								minutos_medida_anterior = minutos_medida
+								opcion_registrar = True
+							else:
+								if hora_medida_anterior == hora_medida:
+									if (minutos_medida - minutos_medida_anterior) < 40:
+										opcion_registrar = False
+									else:
+										opcion_registrar = True
+							
+							
+							if hora_medida >= hora_inicio and hora_medida <= hora_fin and opcion_registrar == True:
 								#VALOR CORRECTO, AGREGAR AL ARCHIVO
 								suma_bwdown = suma_bwdown + float(bw[2])
 								contador_bwdown = contador_bwdown + 1
@@ -307,7 +416,8 @@ def newreport(isp_id,day_id,month_id,year,report_id):
 			respuesta = respuesta + "\n"
 			
 		if report_id == "5":
-			contador_fecha = len(list_bwup)
+			#contador_fecha = len(list_bwup)
+			contador_fecha = len(list_days)
 			if contador_fecha < len(list_bwdown):
 				contador_fecha = len(list_bwdown)
 			
@@ -319,7 +429,8 @@ def newreport(isp_id,day_id,month_id,year,report_id):
 			fpromedio_bwup = 0
 			
 			
-			for k in list_day_speed:
+			#for k in list_day_speed:
+			for k in list_days:
 				respuesta = respuesta + str(k).replace(" ","") + "\t" 
 				if k in list_bwdown:
 					respuesta = respuesta + str(list_bwdown[k]).replace(" ","").replace(".",",")+ "\t"
@@ -407,6 +518,7 @@ def main():
 	day = lastday.strftime('%d');
 	
 	
+	getListOfDays(day,month,year)
 	text_report = newreport(isp_id,day,month,year,report_id)
 	
 
