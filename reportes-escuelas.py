@@ -436,13 +436,13 @@ def newreport(isp_id,day_id,month_id,year,report_id):
 					respuesta = respuesta + str(list_bwdown[k]).replace(" ","").replace(".",",")+ "\t"
 					fsuma_bwdown = fsuma_bwdown + float(list_bwdown[k])
 				else:
-					respuesta = respuesta + str(0) + "\t"
+					respuesta = respuesta + str(-1) + "\t"
 				
 				if k in list_bwup:
 					respuesta = respuesta + str(list_bwup[k]).replace(" ","").replace(".",",") + "\t"
 					fsuma_bwup = fsuma_bwup + float(list_bwup[k])
 				else:
-					respuesta = respuesta + str(0) + "\t"
+					respuesta = respuesta + str(-1) + "\t"
 				#respuesta = respuesta + str(k).replace(" ","") + "\t" + str(list_bwdown[k]).replace(" ","") + "\t" + str(list_bwup[k]).replace(" ","") + "\t"
 				
 			##Promedios
