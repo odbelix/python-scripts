@@ -1,0 +1,7 @@
+Resumen_Velocidades Faltan fechas en algunas mediciones y dejan espacios en blanco.
+
+1) Crear una función que genere un arreglo con todas las fechas validas de mediciones. Similar al list_fechas_av.
+2) En cada iteración guardar en un arreglo los datos de subida y Bajada.
+3) Al final de cada linea recorrer los arreglos de subida y bajada según la información que existe en en el primer arreglo no en su arreglo propio.
+
+
