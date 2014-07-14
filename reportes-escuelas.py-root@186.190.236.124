@@ -19,15 +19,14 @@ import grp
 host = "localhost"
 database = "mobmeters" 
 username = "root"
-password = "1qazxsw2"
-#password = "xime98"
+password = "xime98"
 
 #LINARES = 2
 isp_id = 2
 isp_name = "LUZLINARES"
 file_name = ""
-path_file = ""
-#path_file = "/var/www/application/mobmeters/static/reports/"
+#path_file = ""
+path_file = "/var/www/application/mobmeters/static/reports/"
 list_days = []
 
 def getListOfDays(day_id,month_id,year):
@@ -520,18 +519,36 @@ def main():
 	#Get current date and Check if first of month
 	datenow = datetime.now()
 	#datenow = datetime(2014,4,1)
-	datenow = datetime(2013,12,1)
-	
-	if not datenow.day == 1:
-		sys.exit("Alert!: It's not a day(%s) to do Reports :D" % (datenow.strftime('%Y-%m-%d')))
+	#datenow = datetime(2012,12,1)
 
-	if len(sys.argv) <> 2:
+	option = False
+
+#	if not datenow.day == 1:
+#		sys.exit("Alert!: It's not a day(%s) to do Reports :D" % (datenow.strftime('%Y-%m-%d')))
+
+#	if len(sys.argv) <> 2:
+	if len(sys.argv) > 3 or len(sys.argv) == 1:
 		sys.exit("Alert!: Not enogth arguments to do Reports :D")
 	else:
 		if int(sys.argv[1]) not in [1,2,3,4,5]:
 				sys.exit("Alert!: Report ID invalid:\n1)\t \n2)\t \n3)\t \n4)\t \n5)\n \n")
 		else:
 			report_id = str(sys.argv[1])
+
+
+	#VALIDATING
+        if len(sys.argv) == 3:
+                param = sys.argv[2].split("/")
+                if len(param) == 2:
+                        option = True
+
+        if not datenow.day == 1 and option == False:
+                sys.exit("Alert!: It's not a day(%s) to do Reports :D" % (datenow.strftime('%Y-%m-%d')))
+
+        if datenow.day == 1 and option == True:
+                datenow = datetime(int(param[0]),int(param[1]),1)
+        if not datenow.day == 1 and option == True:
+                datenow = datetime(int(param[0]),int(param[1]),1)
 	
 	#
 	#Creating report

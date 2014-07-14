@@ -26,8 +26,8 @@ password = "1qazxsw2"
 isp_id = 2
 isp_name = "LUZLINARES"
 file_name = ""
-path_file = ""
-#path_file = "/var/www/application/mobmeters/static/reports/"
+#path_file = ""
+path_file = "/var/www/application/mobmeters/static/reports/"
 list_days = []
 
 def getListOfDays(day_id,month_id,year):
@@ -136,7 +136,7 @@ def newreport(isp_id,day_id,month_id,year,report_id):
 		fecha_inicio = 1
 		for dia in range(fecha_inicio,int(day_id)+1):
 			id_muestra = 1
-			cont_muestra = 1
+			cont_muestra = 0
 			
 			#VALIDAR SI dia es LUNES-VIERNES
 			nombre_dia_fecha = datetime.strptime('%s%s%s' % (str(dia).zfill(2),str(month_id),str(year)), '%d%m%Y').date()
@@ -185,21 +185,16 @@ def newreport(isp_id,day_id,month_id,year,report_id):
 							
 							if hora_medida >= hora_inicio and hora_medida <= hora_fin and opcion_registrar == True:
 								#VALOR CORRECTO, AGREGAR AL ARCHIVO
+								linea = str(id_muestra)+"\t"+str(escuela[0])+"\t0\t0\t"+str(escuela[1])+"\t"+"Radioenlace\t \t "
+								respuesta = respuesta+linea+"\t"+"%s/%s/%s\t" %(str(str(dia).zfill(2)),str(month_id),str(year))
+								respuesta = respuesta+lista_dias[d[1].strftime('%A')]+"\t"
+								respuesta = respuesta+d[1].strftime('%H:%M:%S')+"\t"
+								cont_muestra = cont_muestra + 1
 								if nombre_dia <> 'Saturday':
-									linea = str(id_muestra)+"\t"+str(escuela[0])+"\t0\t0\t"+str(escuela[1])+"\t"+"Radioenlace\t \t "
-									respuesta = respuesta+linea+"\t"+"%s/%s/%s\t" %(str(str(dia).zfill(2)),str(month_id),str(year))
-									respuesta = respuesta+lista_dias[d[1].strftime('%A')]+"\t"
-									respuesta = respuesta+d[1].strftime('%H:%M:%S')+"\t"
 									respuesta = respuesta+str(d[2])+"\n"
 								else:
 									if cont_muestra <= 6:
-										linea = str(id_muestra)+"\t"+str(escuela[0])+"\t0\t0\t"+str(escuela[1])+"\t"+"Radioenlace\t \t "
-										respuesta = respuesta+linea+"\t"+"%s/%s/%s\t" %(str(str(dia).zfill(2)),str(month_id),str(year))
-										respuesta = respuesta+lista_dias[d[1].strftime('%A')]+"\t"
-										respuesta = respuesta+d[1].strftime('%H:%M:%S')+"\t"
 										respuesta = respuesta+str(-1)+"\n"
-								
-								cont_muestra = cont_muestra + 1
 								id_muestra = id_muestra + 1
 
 
@@ -308,29 +303,20 @@ def newreport(isp_id,day_id,month_id,year,report_id):
 							if hora_medida >= hora_inicio and hora_medida <= hora_fin and opcion_registrar == True:
 								#VALOR CORRECTO, AGREGAR AL ARCHIVO
 								"Id_Muestra\tRBD\tId_Enlace\tAnexo\tEstablecimiento\tTipo_Servicio\tVelocidad\tID_BTS\tNombre_BTS\tFecha_Muestra\tDia_Muestra\tHora_Muestra\tValor_Muestra\tObservacion\n"
-								
+								linea = str(id_muestra)+"\t"+str(escuela[0])+"\t0\t0\t"+str(escuela[1])+"\t"+"Radioenlace\t"+velocidad+"\t \t "
+								respuesta = respuesta+linea+"\t"+"%s/%s/%s\t" %(str(str(dia).zfill(2)),str(month_id),str(year))
+								respuesta = respuesta+lista_dias[bw[1].strftime('%A')]+"\t"
+								respuesta = respuesta+bw[1].strftime('%H:%M:%S')+"\t"
+								kilobits = "%.2f" % (float(bw[2])/1024)
+								cont_muestra = cont_muestra + 1
 								if nombre_dia == 'Saturday':
 									if cont_muestra <= 6:
-										linea = str(id_muestra)+"\t"+str(escuela[0])+"\t0\t0\t"+str(escuela[1])+"\t"+"Radioenlace\t"+velocidad+"\t \t "
-										respuesta = respuesta+linea+"\t"+"%s/%s/%s\t" %(str(str(dia).zfill(2)),str(month_id),str(year))
-										respuesta = respuesta+lista_dias[bw[1].strftime('%A')]+"\t"
-										respuesta = respuesta+bw[1].strftime('%H:%M:%S')+"\t"
-										#kilobits = "%.2f" % (float(bw[2])/1024)
 										kilobits = -1
 										respuesta = respuesta+str(kilobits).replace(".",",")+"\n"
-								
-								else: 
-									linea = str(id_muestra)+"\t"+str(escuela[0])+"\t0\t0\t"+str(escuela[1])+"\t"+"Radioenlace\t"+velocidad+"\t \t "
-									respuesta = respuesta+linea+"\t"+"%s/%s/%s\t" %(str(str(dia).zfill(2)),str(month_id),str(year))
-									respuesta = respuesta+lista_dias[bw[1].strftime('%A')]+"\t"
-									respuesta = respuesta+bw[1].strftime('%H:%M:%S')+"\t"
-									kilobits = "%.2f" % (float(bw[2])/1024)
+										id_muestra = id_muestra + 1
+								else:
 									respuesta = respuesta+str(kilobits).replace(".",",")+"\n"
-								
-								
-								cont_muestra = cont_muestra + 1
-								id_muestra = id_muestra + 1
-								
+									id_muestra = id_muestra + 1
 
 				if report_id == "5":
 					suma_bwup = 0
@@ -519,8 +505,10 @@ def main():
 		
 	#Get current date and Check if first of month
 	datenow = datetime.now()
-	#datenow = datetime(2014,4,1)
 	datenow = datetime(2013,12,1)
+	#datenow = datetime(2014,4,1)
+	
+	
 	
 	if not datenow.day == 1:
 		sys.exit("Alert!: It's not a day(%s) to do Reports :D" % (datenow.strftime('%Y-%m-%d')))
