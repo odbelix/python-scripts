@@ -14,8 +14,6 @@ import syslog
 lista_rfid_historicos = []
 lista_rfid_unicos = []
 
-
-
 ##FUNCION PARA REMOVE BASURA DE LA LINEA
 def remove_basura_de_linea(linea):
 	syslog.syslog(syslog.LOG_INFO, 'REMOVIENDO BASURA DE RFID')
@@ -23,6 +21,7 @@ def remove_basura_de_linea(linea):
 	codigo = linea.replace("\n","")
 	codigo = codigo.replace("\r","")
 	codigo = codigo.replace("LA ","")
+	codigo = codigo.replace("+","")
 	return codigo
 	
 ##FUNCION PARA LA APERTURA DE PUERTO
@@ -52,15 +51,15 @@ def main(puerto):
 				syslog.syslog(syslog.LOG_ERR, 'Perdida de conexion con:'+serial_port.name)
 				sys.exit("Perdida de conexion con:"+serial_port.name)
 				
-			if "CHL" in linea:
+			if "CHL" in linea and len(linea) > 12:
 				codigo = remove_basura_de_linea(linea)
 				lista_rfid_historicos.append(codigo)
 				if codigo not in lista_rfid_unicos:
 					syslog.syslog(syslog.LOG_INFO, 'NUEVO RFID:'+codigo)
 					lista_rfid_unicos.append(codigo)
 				
-				print lista_rfid_historicos
-				print lista_rfid_unicos
+				print len(lista_rfid_historicos),lista_rfid_historicos
+				print len(lista_rfid_unicos),lista_rfid_unicos
 			else:
 				syslog.syslog(syslog.LOG_WARNING, 'Linea sin informacion')
 			
@@ -69,6 +68,7 @@ def main(puerto):
 
 
 if __name__ == "__main__":
+
 	if len(sys.argv) <> 2:
 		sys.exit("Solo se puede recibir como parametro el puerto /dev/PUERTO")
 	else: 	
