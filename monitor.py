@@ -1,20 +1,65 @@
 #!/usr/bin/env python
 # 07-2014 Manuel Moscoso Dominguez
-########## LIBRERIAS/PAQUETES
+########## LIBRERIAS/PAQUETES ##########################################
 #PARA LEER
-import serial
-#PARA SALIR
-import sys
+#PARA SALIR por Error
 #PARA SLEEP
-import time
 #PARA LOGS
+#PARA FECHA Y HORA
+#PARA CONECTAR A MYSQL
+########################################################################
+import serial
+import sys
+import time
 import syslog
+from datetime import datetime
+import MySQLdb
+########################################################################
 
-## VARIABLES GLOBALES
+########### VARIABLES GLOBALES #########################################
 lista_rfid_historicos = []
 lista_rfid_unicos = []
+host = "localhost"
+database = "control_diio" 
+username = "root"
+password = "1qazxsw2"
+tabla = "RFID_LECTURA"
+########################################################################
 
-##FUNCION PARA REMOVE BASURA DE LA LINEA
+## FUNCION: agregar_rfid_a_tabla
+## DESC: Agregar la informacion de lectura a la Base de datos
+def agregar_rfid_a_tabla(valor):
+	global tabla
+	global host
+	global username
+	global database
+	global password
+	##FECHA,FECHA_MONITOR,BASTON,RFID
+	query = "INSERT INTO %s (FECHA,FECHA_MONITOR,BASTON,RFID) VALUES (NOW(),'%s','%s','%s')" % (tabla,valor['FECHA_MONITOR'],valor['BASTON'],valor['RFID'])
+	print query
+	#Execute query	
+	db = MySQLdb.connect(host,username,password,database)
+	cursor = db.cursor()
+	try:
+		syslog.syslog(syslog.LOG_INFO, 'Agregando Codigo a la base de datos')
+		cursor.execute(query)
+		results = cursor.lastrowid
+		db.commit()
+		syslog.syslog(syslog.LOG_INFO, 'SE AGREGO RFID CON ID: %s' % str(results))
+		return results
+	except MySQLdb.Error, e:
+		syslog.syslog(syslog.LOG_ERR, 'ERROR: %s' % str(e))
+		sys.exit("Error MySQLdb: %s" %e)
+		return False
+	
+## FUNCION: valorAhora
+## DESC: Obtener el valor de ahora - datetime
+def valorAhora():
+	datenow = datetime.now()
+	return datenow
+	
+## FUNCION: remove_basura_de_linea
+## DESC: Remueve todo tipo de caracteres incesarios en la linea leida
 def remove_basura_de_linea(linea):
 	syslog.syslog(syslog.LOG_INFO, 'REMOVIENDO BASURA DE RFID')
 	codigo = ""
@@ -24,7 +69,8 @@ def remove_basura_de_linea(linea):
 	codigo = codigo.replace("+","")
 	return codigo
 	
-##FUNCION PARA LA APERTURA DE PUERTO
+## FUNCION: apertura_puerto
+## DESC: Abre un puerto para lectura.
 def apertura_puerto(puerto):
 	syslog.syslog(syslog.LOG_INFO,'ABRIENDO PUERTO:'+puerto)
 	try:
@@ -33,11 +79,12 @@ def apertura_puerto(puerto):
 		syslog.syslog(syslog.LOG_ERR,'ERROR PUERTO:'+puerto)
 		syslog.syslog(syslog.LOG_ERR,'ERROR:'+str(e))
 		sys.exit("ERROR:%s" % e)
-	
 	return serial_port
 
-
+## FUNCION: main
+## DESC: Funcion principal que permite la lectura del baston cada 1(s)
 def main(puerto):
+	
 	serial_port = apertura_puerto(puerto)
 	
 	if serial_port.isOpen():
@@ -57,9 +104,9 @@ def main(puerto):
 				if codigo not in lista_rfid_unicos:
 					syslog.syslog(syslog.LOG_INFO, 'NUEVO RFID:'+codigo)
 					lista_rfid_unicos.append(codigo)
-				
-				print len(lista_rfid_historicos),lista_rfid_historicos
-				print len(lista_rfid_unicos),lista_rfid_unicos
+					var = {'FECHA_MONITOR':valorAhora(),'BASTON':puerto,'RFID' : codigo }
+					agregar_rfid_a_tabla(var)
+
 			else:
 				syslog.syslog(syslog.LOG_WARNING, 'Linea sin informacion')
 			
@@ -71,7 +118,7 @@ if __name__ == "__main__":
 
 	if len(sys.argv) <> 2:
 		sys.exit("Solo se puede recibir como parametro el puerto /dev/PUERTO")
-	else: 	
+	else:
 		main(sys.argv[1])
 
 
