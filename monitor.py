@@ -7,6 +7,7 @@
 #PARA LOGS
 #PARA FECHA Y HORA
 #PARA CONECTAR A MYSQL
+#PARA ID PROCESO
 ########################################################################
 import serial
 import sys
@@ -14,6 +15,7 @@ import time
 import syslog
 from datetime import datetime
 import MySQLdb
+import os
 ########################################################################
 
 ########### VARIABLES GLOBALES #########################################
@@ -28,6 +30,27 @@ tabla = "RFID_LECTURA"
 
 ## FUNCION: agregar_rfid_a_tabla
 ## DESC: Agregar la informacion de lectura a la Base de datos
+def agregar_pid_monitor(valor):
+	global host
+	global username
+	global database
+	global password
+	query = "UPDATE RFID_PARAMETROS SET VALOR = %s WHERE PARAMETRO = 'PID'" % (str(valor))
+	db = MySQLdb.connect(host,username,password,database)
+	cursor = db.cursor()
+	try:
+		syslog.syslog(syslog.LOG_INFO, 'PID del Monitor %s' %(str(valor)))
+		cursor.execute(query)
+		db.commit()
+		return True
+	except MySQLdb.Error, e:
+		syslog.syslog(syslog.LOG_ERR, 'ERROR: %s' % str(e))
+		sys.exit("Error MySQLdb: %s" %e)
+		return False
+
+
+## FUNCION: agregar_rfid_a_tabla
+## DESC: Agregar la informacion de lectura a la Base de datos
 def agregar_rfid_a_tabla(valor):
 	global tabla
 	global host
@@ -36,7 +59,6 @@ def agregar_rfid_a_tabla(valor):
 	global password
 	##FECHA,FECHA_MONITOR,BASTON,RFID
 	query = "INSERT INTO %s (FECHA,FECHA_MONITOR,BASTON,RFID) VALUES (NOW(),'%s','%s','%s')" % (tabla,valor['FECHA_MONITOR'],valor['BASTON'],valor['RFID'])
-	print query
 	#Execute query	
 	db = MySQLdb.connect(host,username,password,database)
 	cursor = db.cursor()
@@ -106,7 +128,8 @@ def main(puerto):
 					lista_rfid_unicos.append(codigo)
 					var = {'FECHA_MONITOR':valorAhora(),'BASTON':puerto,'RFID' : codigo }
 					agregar_rfid_a_tabla(var)
-
+				else:
+					syslog.syslog(syslog.LOG_INFO, 'RFID REPETIDO:'+codigo)
 			else:
 				syslog.syslog(syslog.LOG_WARNING, 'Linea sin informacion')
 			
@@ -115,10 +138,11 @@ def main(puerto):
 
 
 if __name__ == "__main__":
-
+	
 	if len(sys.argv) <> 2:
 		sys.exit("Solo se puede recibir como parametro el puerto /dev/PUERTO")
 	else:
+		agregar_pid_monitor(os.getpid())
 		main(sys.argv[1])
 
 
