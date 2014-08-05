@@ -26,7 +26,69 @@ database = "control_diio"
 username = "root"
 password = "1qazxsw2"
 tabla = "RFID_LECTURA"
+
+estado_encendido = 'E'
+estado_apagado = 'A'
+
+estado_conexion = True
+
 ########################################################################
+
+## FUNCION: verificar_conexion
+## DESC: verifica la conexion a la base de datos
+def verificar_conexion():
+	global host
+	global username
+	global database
+	global password
+	
+	try:
+		db = MySQLdb.connect(host,username,password,database)
+	except MySQLdb.Error, e:
+		syslog.syslog(syslog.LOG_ERR, 'ERROR DB: %s' % str(e))
+		sys.exit("Error DB: %s" %str(e))
+	
+	
+## FUNCION: consultar_estado_baston
+## DESC: actualiza el estado del baston
+def consultar_estado_baston(baston):
+	global host
+	global username
+	global database
+	global password
+	query = "SELECT ESTADO FROM RFID_PARAMETROS WHERE VALOR = '%s'" % (str(baston))
+	db = MySQLdb.connect(host,username,password,database)
+	cursor = db.cursor()
+	try:
+		syslog.syslog(syslog.LOG_INFO, 'ESTADO BASTON: %s' %(str(baston)))
+		cursor.execute(query)
+		results = cursor.fetchall()
+		return results
+	except MySQLdb.Error, e:
+		syslog.syslog(syslog.LOG_ERR, 'ERROR: %s' % str(e))
+		sys.exit("Error MySQLdb: %s" %e)
+		return False
+
+
+## FUNCION: actualizar_estado_baston
+## DESC: actualiza el estado del baston
+def actualizar_estado_baston(baston,estado):
+	global host
+	global username
+	global database
+	global password
+	query = "UPDATE RFID_PARAMETROS SET ESTADO = '%s' WHERE VALOR = '%s'" % (str(estado),str(baston))
+	db = MySQLdb.connect(host,username,password,database)
+	cursor = db.cursor()
+	try:
+		syslog.syslog(syslog.LOG_INFO, 'ACTUALIZAR ESTADO DE BASTON:%s A %s' %(str(baston),str(estado)))
+		cursor.execute(query)
+		db.commit()
+		return True
+	except MySQLdb.Error, e:
+		syslog.syslog(syslog.LOG_ERR, 'ERROR: %s' % str(e))
+		sys.exit("Error MySQLdb: %s" %e)
+		return False
 
 ## FUNCION: agregar_rfid_a_tabla
 ## DESC: Agregar la informacion de lectura a la Base de datos
@@ -96,7 +158,8 @@ def remove_basura_de_linea(linea):
 def apertura_puerto(puerto):
 	syslog.syslog(syslog.LOG_INFO,'ABRIENDO PUERTO:'+puerto)
 	try:
-		serial_port = serial.Serial(puerto, 9600, timeout=1) 
+		serial_port = serial.Serial(puerto, 9600, timeout=1)
+		actualizar_estado_baston(puerto,'E')
 	except serial.SerialException as e:
 		syslog.syslog(syslog.LOG_ERR,'ERROR PUERTO:'+puerto)
 		syslog.syslog(syslog.LOG_ERR,'ERROR:'+str(e))
@@ -132,7 +195,13 @@ def main(puerto):
 					syslog.syslog(syslog.LOG_INFO, 'RFID REPETIDO:'+codigo)
 			else:
 				syslog.syslog(syslog.LOG_WARNING, 'Linea sin informacion')
-			
+		
+			#VERIFICAR ESTADO
+			datas = consultar_estado_baston(puerto)
+			if ( datas[0][0] == estado_apagado ):
+				syslog.syslog(syslog.LOG_INFO, 'APAGANDO BASTON DE PUERTO:%s:' % (str(puerto)))
+				sys.exit()
+				
 	ser.close() 
 	sio.close()
 
@@ -142,6 +211,7 @@ if __name__ == "__main__":
 	if len(sys.argv) <> 2:
 		sys.exit("Solo se puede recibir como parametro el puerto /dev/PUERTO")
 	else:
+		verificar_conexion()
 		agregar_pid_monitor(os.getpid())
 		main(sys.argv[1])
 
