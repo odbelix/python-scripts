@@ -1,0 +1,31 @@
+root@srv-diio:~# cat /etc/bluetooth/rfcomm.conf 
+#
+# RFCOMM configuration file.
+#
+
+#rfcomm0 {
+#	# Automatically bind the device at startup
+#	bind no;
+#
+#	# Bluetooth address of the device
+#	device 11:22:33:44:55:66;
+#
+#	# RFCOMM channel for the connection
+#	channel	1;
+#
+#	# Description of the connection
+#	comment "Example Bluetooth device";
+#}
+
+rfcomm1 {
+	# Automatically bind the device at startup
+	bind yes;
+	# Bluetooth address of the device
+	device 00:A0:96:32:CD:B3;
+
+	# RFCOMM channel for the connection
+	channel	1;
+
+	# Description of the connection
+	comment "Stick Reader V3";
+}

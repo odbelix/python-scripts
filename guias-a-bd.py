@@ -108,7 +108,7 @@ def verificar_boleto(valores):
 	valores = valores.replace("\n","")
 	valor = valores.split(";")
 	##numeroguia;fecha;boleto;marca;ruporigen;rutorigen;rutdestino
-	query = "UPDATE %s SET num_guia = %s ,ruporigen = '%s' ,rutorigen = '%s' ,rutdestino = '%s' WHERE fecha = '%s' and boleto = '%s' and num_guia = 0" % (tabla_boleto,valor[0],valor[4],valor[5],valor[6],valor[1],valor[2])
+	query = "UPDATE %s SET num_guia = %s ,ruporigen = '%s' ,rutorigen = '%s' ,rutdestino = '%s', rupdestino = '%s',kilos = %s ,precio = %s ,animal = %s WHERE fecha = '%s' and boleto = '%s'" % (tabla_boleto,valor[0],valor[4],valor[5],valor[6],valor[7],valor[8],valor[9],valor[10],valor[1],valor[2])
 	
 	#Execute query	
 	db = MySQLdb.connect(host,username,password,database)
@@ -135,8 +135,9 @@ def agregar_guia_a_tabla(valores):
 	
 	valores = valores.replace("\n","")
 	valor = valores.split(";")
-	##numeroguia;fecha;boleto;marca;ruporigen;rutorigen;rutdestino
-	query = "INSERT INTO %s (num_guia,fecha,boleto,marca,ruporigen,rutorigen,rutdestino) VALUES ('%s','%s','%s','%s','%s','%s','%s')" % (tabla,valor[0],valor[1],valor[2],valor[3],valor[4],valor[5],valor[6])
+	##numeroguia;fecha;boleto;marca;ruporigen;rutorigen;rutdestino,KILOS;PRECIO;ANIMAL
+	##NUMGUIA;FECHA;BOLETO;MARCA;RUPORIGEN;RUTORIGEN;RUTDESTINO;RUPDESTINO;KILOS;PRECIO;ANIMAL
+	query = "INSERT INTO %s (num_guia,fecha,boleto,marca,ruporigen,rutorigen,rutdestino,rupdestino,kilos,precio,animal) VALUES ('%s','%s','%s','%s','%s','%s','%s','%s',%s,%s,%s)" % (tabla,valor[0],valor[1],valor[2],valor[3],valor[4],valor[5],valor[6],valor[7],valor[8],valor[9],valor[10])
 	#Execute query	
 	db = MySQLdb.connect(host,username,password,database)
 	cursor = db.cursor()

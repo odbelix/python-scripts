@@ -1,0 +1,185 @@
+#!/usr/bin/python
+#apcolector
+########################################################################
+# Manuel Moscoso Dominguez
+# 2014
+# Manager of script that get ap's information from WLC - TALCA
+########################################################################
+import MySQLdb
+import syslog
+import sys
+import os
+import os.path
+from os import listdir
+import time
+from datetime import datetime
+import operator
+########## VARIABLES CONEXION ##########################################
+host = "localhost"
+database = "db_intradti" 
+username = "root"
+password = "1qazxsw2"
+tabla = "AccessPoint"
+#tabla_boleto = "ingreso_feria"
+########################################################################
+
+########## VARIABLES TEMP FILES ########################################
+path_temp = "/tmp/apcolector/"
+########################################################################
+
+# Managment tmp directory 
+def managmentTmpDirectory():
+	global path_temp
+	syslog.syslog(syslog.LOG_INFO,"Verificando TEMP PATH (%s)" % (path_temp))
+	if not os.path.exists(path_temp):
+		os.makedirs(path_temp)
+
+# Get AP list
+def getAccessApList():
+	global host
+	global username
+	global database
+	global password
+	global tabla
+	
+	query = "SELECT DISTINCT name FROM %s where state = 'enable' ORDER BY name" % tabla
+	db = MySQLdb.connect(host,username,password,database)
+	cursor = db.cursor()
+	#	syslog.syslog(syslog.LOG_INFO, 'Verificando valor ultima guia ingresada')
+	try:
+		cursor.execute(query)
+		results = cursor.fetchall()
+		return results
+		for data in results:
+			print data[0]
+			#
+			#if int(data[0]) in lista_guias:
+			#	lista_guias.remove(data[0])
+			#syslog.syslog(syslog.LOG_INFO, 'Ultima guia detectada (%s)' % (data[0]))
+		
+		#return sorted(lista_guias)
+		
+	except MySQLdb.Error, e:
+		syslog.syslog(syslog.LOG_ERR, 'ERROR: %s' % str(e))
+		sys.exit("Error MySQLdb: %s" %e)
+		return False
+
+def countQuery(query):
+	global host
+	global username
+	global database
+	global password
+	global tabla
+	
+	db = MySQLdb.connect(host,username,password,database)
+	cursor = db.cursor()
+	#	syslog.syslog(syslog.LOG_INFO, 'Verificando valor ultima guia ingresada')
+	try:
+		cursor.execute(query)
+		(result,)=cursor.fetchone()
+		return result
+	except MySQLdb.Error, e:
+		syslog.syslog(syslog.LOG_ERR, 'ERROR: %s' % str(e))
+		sys.exit("Error MySQLdb: %s" %e)
+		return False
+		
+		
+
+def upDateQuery(query):
+	global host
+	global username
+	global database
+	global password
+	global tabla
+	
+	db = MySQLdb.connect(host,username,password,database)
+	cursor = db.cursor()
+	#	syslog.syslog(syslog.LOG_INFO, 'Verificando valor ultima guia ingresada')
+	try:
+		cursor.execute(query)
+		db.commit()
+		results = cursor.fetchall()
+		return True
+		
+	except MySQLdb.Error, e:
+		syslog.syslog(syslog.LOG_ERR, 'ERROR: %s' % str(e))
+		sys.exit("Error MySQLdb: %s" %e)
+		return False
+
+def getApEnablesOnWLC():
+	global tabla
+	filename = path_temp+"ap_enables_tmp"
+	os.system("expect /home/mmoscoso/Documentos/workspace/script-bash/get-ap-enables-on-wlc.sh > %s" % (filename) )
+	if os.path.exists(filename):
+		archivo = open(filename,'r')
+		lineas = archivo.readlines()
+		for linea in lineas:
+			arr = linea.split()
+			if len(arr) == 2:
+				apName = arr[0]				
+				if apName[0] == 'a' or apName[0][0] == 'A':
+					query = "SELECT COUNT(*) FROM %s WHERE name like '%s' " %(tabla,apName)
+					if countQuery(query) == 0:
+						print query
+						
+					query = "UPDATE %s SET state = '%s' WHERE name like '%s'" % (tabla,arr[1],apName)
+					upDateQuery(query)
+					
+			#	print arr[0]
+			#linea = linea.replace("\r","")
+			#linea = linea.replace("\n","")
+			#dataline = ';'.join(linea.split())
+			#if linea[0] == 'a':
+			#	print "UPDATEA linea
+
+if __name__ == "__main__":	
+	#if len(sys.argv) <> 2:
+	#	sys.exit("Solo se puede recibir como parametro el puerto /dev/PUERTO")
+	#else:
+	#	verificar_conexion()
+	#	agregar_pid_monitor(os.getpid())
+	#main()
+	#CHECK DIRECTORY
+	managmentTmpDirectory()
+	
+	#GET AP ENABLES ON WLC
+	#getApEnablesOnWLC()
+	
+	#GET AP LIST
+	apList = getAccessApList()
+	
+	cont_total_clients = 0
+	total_ap = len(apList)
+	arrayDetail = []
+	
+	for data in apList:
+		filename = path_temp+"datos_client_%s_tmp" % (data[0])
+		os.system("expect /home/mmoscoso/Documentos/workspace/script-bash/get-client-for-ap-on-wlc.sh %s > %s" %(data[0],filename))
+		if os.path.exists(filename):
+			archivo = open(filename,'r')
+			lineas = archivo.readlines()
+			cont_client = 0
+			time_metrics = str(datetime.now())
+			for linea in lineas:
+				linea = linea.replace("\r","")
+				linea = linea.replace("\n","")
+				dataline = ';'.join(linea.split())
+				#arr = linea.split(' ')
+				if "Yes" in dataline:
+					datasql = dataline.split(";")
+					if len(datasql) == 5:
+						cont_total_clients = cont_total_clients + 1
+						cont_client = cont_client + 1
+						query = "INSERT INTO AccessPoint(macclient;apname,time) VALUES ('%s','%s','%s')" % (datasql[0],data[0],time_metrics)
+						print query
+
+			# DETAIL FOR EACH AP
+			dataApARR = [data[0],cont_client,time_metrics]
+			arrayDetail.append(dataApARR)
+
+	list = sorted(arrayDetail, key=operator.itemgetter(1), reverse=True)
+	for arr in list:
+		print "%s;%s" %(arr[0],arr[1])
+		
+	print "Total of clients: %d" % (cont_total_clients)
+	print "Total AP: %d" % (total_ap)

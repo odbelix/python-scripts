@@ -1,0 +1,5 @@
+host = "minotauro.agricultorestalca.cl"
+database = "control_diio" 
+username = "diio"
+password = "diio.14"
+tabla = "rfid_lectura"
