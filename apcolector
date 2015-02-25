@@ -14,6 +14,7 @@ from os import listdir
 import time
 from datetime import datetime
 import operator
+import rrdtool
 ########## VARIABLES CONEXION ##########################################
 host = "localhost"
 database = "db_intradti" 
@@ -25,6 +26,12 @@ tabla = "AccessPoint"
 
 ########## VARIABLES TEMP FILES ########################################
 path_temp = "/tmp/apcolector/"
+path_dbgraph = "/home/mmoscoso/Documentos/workspace/python-scripts/dbgraph/"
+path_images = "/home/mmoscoso/Documentos/workspace/python-scripts/images/"
+########################################################################
+
+########## VARIABLES GENERALES  ########################################
+wlc = "192.168.20.135"
 ########################################################################
 
 # Managment tmp directory 
@@ -131,6 +138,23 @@ def getApEnablesOnWLC():
 			#dataline = ';'.join(linea.split())
 			#if linea[0] == 'a':
 			#	print "UPDATEA linea
+			
+def getInfoFromWLC(apname,filename):
+	option = 2
+	while ( option > 0 ):
+		os.system("expect /home/mmoscoso/Documentos/workspace/script-bash/get-client-for-ap-on-wlc.sh %s > %s" %(apname,filename))
+		print "%s;%s;%s" % (str(datetime.now()),data[0],filename)
+		num_ap = os.popen("cat %s | grep 'Yes\|No' | wc -l" % (filename)).read()
+		print "num_ap: %s" %(num_ap)
+		if int(num_ap) != 0:
+			option = 0
+	
+		option = option - 1
+	
+def checkWlcAvailable():
+	option = os.system("ping google.com")
+	if option != 0: 
+		print "HOST IS CONNECTED  :) "
 
 if __name__ == "__main__":	
 	#if len(sys.argv) <> 2:
@@ -152,9 +176,12 @@ if __name__ == "__main__":
 	total_ap = len(apList)
 	arrayDetail = []
 	
-	for data in apList:
+	for  data in apList:
 		filename = path_temp+"datos_client_%s_tmp" % (data[0])
-		os.system("expect /home/mmoscoso/Documentos/workspace/script-bash/get-client-for-ap-on-wlc.sh %s > %s" %(data[0],filename))
+		getInfoFromWLC(data[0],filename)
+		#os.system("expect /home/mmoscoso/Documentos/workspace/script-bash/get-client-for-ap-on-wlc.sh %s > %s" %(data[0],filename))
+		
+
 		if os.path.exists(filename):
 			archivo = open(filename,'r')
 			lineas = archivo.readlines()
@@ -165,7 +192,7 @@ if __name__ == "__main__":
 				linea = linea.replace("\n","")
 				dataline = ';'.join(linea.split())
 				#arr = linea.split(' ')
-				if "Yes" in dataline:
+				if "Yes" in dataline or "No" in dataline:
 					datasql = dataline.split(";")
 					if len(datasql) == 5:
 						cont_total_clients = cont_total_clients + 1
@@ -174,12 +201,24 @@ if __name__ == "__main__":
 						print query
 
 			# DETAIL FOR EACH AP
+			print "%s;%s;" % (data[0],cont_client)
+			print "Total temp: %s\n\n" % (cont_total_clients)
+			
 			dataApARR = [data[0],cont_client,time_metrics]
 			arrayDetail.append(dataApARR)
+			
+			
+		time.sleep(5)	
 
+	i = 1
 	list = sorted(arrayDetail, key=operator.itemgetter(1), reverse=True)
-	for arr in list:
-		print "%s;%s" %(arr[0],arr[1])
+	#for arr in list:
+	for arr in arrayDetail:
+		print "%s;%s;%s;%s" %(str(i),arr[0],arr[1],arr[2])
+		query ="UPDATE AccessPointMetric SET clients = %s,datereg = '%s' WHERE name = '%s'" % (arr[1],arr[2],arr[0])
+		#query ="INSERT INTO AccessPointMetric (name,clients,datereg) VALUES ('%s',%s,'%s')" % (arr[0],arr[1],arr[2])
+		upDateQuery(query)
+		i = i + 1
 		
 	print "Total of clients: %d" % (cont_total_clients)
 	print "Total AP: %d" % (total_ap)
