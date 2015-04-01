@@ -9,11 +9,12 @@
 ########################################################################
 import syslog
 import sys, os
-from os import listdir
-import time
+#from os import listdir
+#import time (soon)
 import commands
-import rrdtool
-from rrdtool import update as rrd_update
+#import rrdtool
+#Just Update DB
+from rrdtool import update as rrd_update 
 import datetime
 from pymongo import MongoClient
 ########################################################################
@@ -24,13 +25,26 @@ list_oid_rogue_ap = { 'AP_ROGUE_NAMES' : 'iso.3.6.1.4.1.14179.2.1.7.1.11' , 'AP_
 
 SNMP_SCRIPT_NAME = "mmsnmpV2.sh"
 path_bin = "bash " + os.path.dirname(sys.argv[0]) + "/" + SNMP_SCRIPT_NAME
-path_rrddb = "/home/mmoscoso/Documentos/workspace/python-scripts/wireless"
+#path_rrddb = "/home/mmoscoso/Documentos/workspace/python-scripts/wireless"
+#path_snmp_logs = "/home/mmoscoso/Documentos/workspace/python-scripts/wireless/logs"
+path_rrddb = "/home/plataforma"
+path_snmp_logs = "/home/plataforma/logs"
 
-# Client summary collection 
+log_name = "LOG_SNMP_"
+
+
+
+
+########################################################################
+# Summaries collections 
 clientsCount = []
 clientCollection = 'clientsummary'
+apCount = []
+apCollection = 'apsummary'
+summaryCollection = 'summary'
 ########################################################################
 # Time Start/End Measure 
+startSummary = datetime.datetime.now()
 startMeasure = datetime.datetime.now()
 endMeasure = datetime.datetime.now()
 ########################################################################
@@ -47,19 +61,33 @@ logs = []
 logCollection = 'log'
 logActionStartMeasuring = 'Start measuring'
 logActionStopMeasuring = 'Stop measuring'
-logActionStartClients = 'Start proccessig clients measures'
-logActionStopClients = 'Stop proccessig clients measures'
-logActionStartRogue = 'Start proccessig RogueAP measures'
-logActionStopRogue = 'Start proccessig RogueAP measures'
+logActionStartClients = 'Start proccessing clients measures'
+logActionStopClients = 'Stop proccessing clients measures'
+logActionStartRogue = 'Start proccessing RogueAP measures'
+logActionStopRogue = 'Stop proccessing RogueAP measures'
+logActionStartAp = 'Start proccessing AP measures'
+logActionStopAp = 'Stop proccessing AP measures'
 ########################################################################
 # MongoDB parameters
 ipMongoDB = '192.168.33.11'
 nameDBMongo = 'wifimetrics'
 ########################################################################
 
+
+def creatingSNMPLogFile(NAMEOUTPUT,OUTPUT,WLCIP):
+	global log_name,path_snmp_logs,startSummary
+	message = "#####################################################\n"
+	message = message + "(" + WLCIP + "):" + NAMEOUTPUT + "\n"
+	message = message + OUTPUT[1]
+	message = message + "\n#####################################################\n"
+	file_path = path_snmp_logs + "/" + log_name + startSummary.strftime("%Y%m%d_%H%M")
+	file_object = open(file_path,"a")
+	file_object.write(message)
+
 ##
 def addingLog(DATETIME,ACTION,WLCIP):
 	global logs
+	syslog.syslog(syslog.LOG_INFO,"(" + WLCIP + ") " +ACTION + " (" + DATETIME.strftime("%Y-%m-%d %H:%M:%S") + ")")
 	log = {}
 	log['DATETIME'] = datetime.datetime.now()
 	log['DATETIMEEXE'] = DATETIME
@@ -70,7 +98,7 @@ def addingLog(DATETIME,ACTION,WLCIP):
 ##
 def savingLogs():
 	global logs,logCollection
-	insertDataOnMongoDB(logCollection,logs)
+	insertDataOnMongoDB(logCollection,logs,"LOGs")
 
 def updateRRDFile(wlc,nClients):
 	global path_rrddb
@@ -78,6 +106,19 @@ def updateRRDFile(wlc,nClients):
 	ret = rrd_update( path_rrddb +'/%s.rrd' %(wlc),value);
 	if ret:
 		print rrdtool.error()
+	
+##
+def logOutputLen(WLCIP):
+	global output_snmp_rogueap_names,output_snmp_rogueap_macdet
+	global output_snmp_rogueap_lastreport
+	global output_snmp_clients_ip,output_snmp_clients_mac,output_snmp_clients_macap
+	
+	syslog.syslog(syslog.LOG_INFO,"(%s) output_snmp_rogueap_names LEN(%d)" % (WLCIP,len(output_snmp_rogueap_names[1])))
+	syslog.syslog(syslog.LOG_INFO,"(%s) output_snmp_rogueap_macdet LEN(%d)" % (WLCIP,len(output_snmp_rogueap_macdet[1])))
+	syslog.syslog(syslog.LOG_INFO,"(%s) output_snmp_rogueap_lastreport LEN(%d)" % (WLCIP,len(output_snmp_rogueap_lastreport[1])))
+	syslog.syslog(syslog.LOG_INFO,"(%s) output_snmp_clients_ip LEN(%d)" % (WLCIP,len(output_snmp_clients_ip[1])))
+	syslog.syslog(syslog.LOG_INFO,"(%s) output_snmp_clients_mac LEN(%d)" % (WLCIP,len(output_snmp_clients_mac[1])))
+	syslog.syslog(syslog.LOG_INFO,"(%s) output_snmp_clients_macap LEN(%d)" % (WLCIP,len(output_snmp_clients_macap[1])))
 	
 ##
 def getInformationBySNMP(wlcIP):
@@ -95,23 +136,40 @@ def getInformationBySNMP(wlcIP):
 
 	# MEASURING
 	output_snmp_clients_ip = commands.getstatusoutput(path_bin + ' %s %s %s' % (wlcIP,list_oid_client["CLIENT_IP"],""))
+	creatingSNMPLogFile("output_snmp_clients_ip",output_snmp_clients_ip,wlcIP)
+	
 	output_snmp_clients_mac = commands.getstatusoutput(path_bin + ' %s %s %s' % (wlcIP,list_oid_client["CLIENT_MAC"],""))
+	creatingSNMPLogFile("output_snmp_clients_mac",output_snmp_clients_mac,wlcIP)
+	
 	output_snmp_clients_macap = commands.getstatusoutput(path_bin + ' %s %s %s' % (wlcIP,list_oid_client["CLIENT_MACAP"],""))
-
+	creatingSNMPLogFile("output_snmp_clients_macap",output_snmp_clients_macap,wlcIP)
+	
 	output_snmp_rogueap_names = commands.getstatusoutput(path_bin + ' %s %s %s' % (wlcIP,list_oid_rogue_ap["AP_ROGUE_NAMES"],""))
+	creatingSNMPLogFile("output_snmp_rogueap_names",output_snmp_rogueap_names,wlcIP)
+	
 	output_snmp_rogueap_macdet = commands.getstatusoutput(path_bin + ' %s %s %s' % (wlcIP,list_oid_rogue_ap["AP_ROGUE_MAC_AP_DET"],""))
+	creatingSNMPLogFile("output_snmp_rogueap_macdet",output_snmp_rogueap_macdet,wlcIP)
+	
 	output_snmp_rogueap_lastreport = commands.getstatusoutput(path_bin + ' %s %s %s' % (wlcIP,list_oid_rogue_ap["AP_ROGUE_LASTREPORT"],""))
+	creatingSNMPLogFile("output_snmp_rogueap_lastreport",output_snmp_rogueap_lastreport,wlcIP)
 	
 	endMeasure = datetime.datetime.now()
 	## LOG
+	logOutputLen(wlcIP)
 	addingLog(endMeasure,logActionStopMeasuring,wlcIP)
 	
+	
 ## Insert Data on MongoDB	
-def insertDataOnMongoDB(collection,data_array):
+def insertDataOnMongoDB(collection,data_array,WLCIP):
 	global ipMongoDB,nameDBMongo
-	client = MongoClient(ipMongoDB, 27017)
-	db = client[nameDBMongo]
-	result = db[collection].insert(data_array)
+	if ( len(data_array) > 0 ):
+		client = MongoClient(ipMongoDB, 27017)
+		db = client[nameDBMongo]
+		result = db[collection].insert(data_array)
+		message = "Store %d record in %s from %s" % ( len(result) , collection , WLCIP )
+		addingLog(datetime.datetime.now(),message,WLCIP)
+	else:
+		message = "Not enough elements for store in collection %s from %s " % (collection , WLCIP )
 	
 ## Data of RogueAP
 def getRogueApInformation(wlcIP):
@@ -150,7 +208,7 @@ def getRogueApInformation(wlcIP):
 				if len(rogue) <> 0:
 					rogue_data.append(rogue)
 					
-	insertDataOnMongoDB('rogueap',rogue_data)
+	insertDataOnMongoDB('rogueap',rogue_data,wlcIP)
 	addingLog(datetime.datetime.now(),logActionStopRogue,wlcIP)
 
 ## Data of Clients		
@@ -171,6 +229,7 @@ def getClientInformation(wlcIP,wlc):
 	IPCLIENT = ""
 
 	client_data = []
+	aps = {}
 	for d in result1:
 		IPCLIENT = d.split(" ")[3]
 		IDCLIENT = d.split(" ")[0].replace(list_oid_client["CLIENT_IP"],"")
@@ -185,16 +244,32 @@ def getClientInformation(wlcIP,wlc):
 						client['MAC'] = changeMacFormat(d1.split("STRING:")[1])
 					if list_oid_client["CLIENT_MACAP"] in d1.split(" ")[0]:
 						client['MACAP'] = changeMacFormat(d1.split("Hex-STRING:")[1])
-						
+						if client['MACAP'] in aps.keys():
+							aps[client['MACAP']] += 1
+						else:
+							aps[client['MACAP']] = 1
+							
 		if len(client) <> 0:
 			client_data.append(client)
-			
 	
-	insertDataOnMongoDB('clients',client_data)
+	insertDataOnMongoDB('clients',client_data,wlcIP)
 	updateRRDFile(wlc,len(client_data))
 	addingClientSummary(wlc,wlcIP,len(client_data))
+	addingApCountSummary(wlc,wlcIP,aps)
 	addingLog(datetime.datetime.now(),logActionStopClients,wlcIP)
 
+##
+def addingApCountSummary(WLC,WLCIP,APS):
+	global apCount,startMeasure
+	for d in APS:
+		apDetail = {}
+		apDetail['DATETIME'] = startMeasure
+		apDetail['IPWLC'] = WLCIP
+		apDetail['NAMEWLC'] = WLC
+		apDetail['MACAP'] = d
+		apDetail['CLIENTS'] = APS[d]
+		apCount.append(apDetail)
+	
 ##
 def addingClientSummary(WLC,WLCIP,CLIENTCOUNT):
 	global clientsCount,startMeasure
@@ -205,17 +280,41 @@ def addingClientSummary(WLC,WLCIP,CLIENTCOUNT):
 	clientNumber['CLIENTS'] = CLIENTCOUNT
 	clientsCount.append(clientNumber)
 
+
+## Saving Summary
+def savingSummary():
+	global summaryCollection,startSummary,endMeasure
+	global ipMongoDB,nameDBMongo
+	summries = []
+	summary = {}
+	client = MongoClient(ipMongoDB, 27017)
+	db = client[nameDBMongo]
+	result = db[summaryCollection].find().count()
+	summary['DATETIMESTART'] = startSummary
+	summary['DATETIMESTOP'] = endMeasure
+	summary['NUMBER'] = result + 1
+	summries.append(summary)
+	insertDataOnMongoDB(summaryCollection,summries,"savingSummary")
+
 ## Saving Client Summary
 def savingClientSummary():
 	global clientsCount,clientCollection
-	insertDataOnMongoDB(clientCollection,clientsCount)
+	insertDataOnMongoDB(clientCollection,clientsCount,"savingClientSummary")
+	
+## Saving Ap Summary
+def savingApSummary():
+	global apCount,apCollection
+	insertDataOnMongoDB(apCollection,apCount,"ApSummary")	
 		
 ## Data of AP
 def getApInformation(wlcIP):
 	global path_bin
 	OID = 'iso.3.6.1.4.1.14179.2.2.1.1.3'
-	OID_MACAP = '1.3.6.1.4.1.14179.2.2.1.1.1'
-	OID_MACET = '1.3.6.1.4.1.14179.2.2.1.1.33'
+	OID_MACAP = 'iso.3.6.1.4.1.14179.2.2.1.1.1'
+	OID_MACET = 'iso.3.6.1.4.1.14179.2.2.1.1.33'
+	global logActionStartAp,logActionStopAp
+	
+	addingLog(datetime.datetime.now(),logActionStartAp,wlcIP)
 	
 	output = commands.getstatusoutput(path_bin + ' %s %s %s' % (wlcIP,OID,""))
 	tempResult = output[1]
@@ -239,7 +338,8 @@ def getApInformation(wlcIP):
 		
 		
 		#print ap_data
-	insertDataOnMongoDB('ap',ap_data)
+	insertDataOnMongoDB('ap',ap_data,wlcIP)
+	addingLog(datetime.datetime.now(),logActionStopAp,wlcIP)
 
 ## Change format of Mac, From SNMP format to HexaFormat
 def changeMacFormat(macaddress):
@@ -249,57 +349,31 @@ def changeMacFormat(macaddress):
 	result = result.lstrip(":")
 	result = result.lower()	
 	return result
-
-##
-def executeSNMP(wlc,wlcIP,ObjectName,OID):
-	global path_bin
-	print "Consultar WLC: %s el OID: %s/ %s" % (wlc,ObjectName,OID)
-	output = commands.getstatusoutput(path_bin + ' %s %s' % (wlcIP,OID))
-	tempResult = output[1]
-	if "\n" in tempResult:
-		tempResult = output[1].split("\n")
-		i = 1
-		for result in tempResult:
-			if "0.0.0" not in result: 
-				if "MAC" in ObjectName:
-					print "%d| %s" % (i,changeMacFormat(result))
-				else: 
-					print "%d| %s" % (i,result)
-				i += 1
-		if ObjectName in "CLIENT_IP":
-			###### UPDATE RDD  
-			print "TOTAL CLIENTES: %d" %(i-1)
-			#if  "talca" in wlc:
-				##UPDATE RDDFILE
-			value = 'N:%d' %(i-1)
-			print value
-			#ret = rrd_update('/home/mmoscoso/Documentos/workspace/python-scripts/wireless/%s.rrd' %(wlc),value);
-			#if ret:
-			#	print rrdtool.error()
-			#	time.sleep(5)
-				
-	else:
-		print tempResult
-	print "############################################################"
-
+	
 ## 
 def main():
 	global list_wlc,list_oid_ap,list_oid_client
 	servicio = True
+	syslog.syslog(syslog.LOG_INFO,"------------ INIT mmwirelessV2 -------------- ")
 	while servicio == True:
+		
 		for wlc in list_wlc:
+			syslog.syslog(syslog.LOG_INFO,"Start for: %s " % (wlc))
 			getInformationBySNMP(list_wlc[wlc])
 			getApInformation(list_wlc[wlc])
 			getClientInformation(list_wlc[wlc],wlc)
 			getRogueApInformation(list_wlc[wlc])
-				#for ObjectName in list_oid_ap:
-				#	executeSNMP(wlc,list_wlc[wlc],ObjectName,list_oid_ap[ObjectName]);
-				#for ObjectName in list_oid_client:
-				#	executeSNMP(wlc,list_wlc[wlc],ObjectName,list_oid_client[ObjectName]);
+			syslog.syslog(syslog.LOG_INFO,"End for: %s " % (wlc))
 		#time.sleep(1)
 		servicio = False
 	savingLogs()
 	savingClientSummary()
+	savingApSummary()
+	savingSummary()
+	
+	
+	output = commands.getstatusoutput("bash /home/plataforma/mmimages.sh")
+	syslog.syslog(syslog.LOG_INFO,"------------ FINISH mmwirelessV2 -------------- ")
 	
 if __name__ == "__main__":	
 	main()
